@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "hashicorp.terraform",
+    "hediet.vscode-drawio",
+    "ms-azuretools.vscode-azureterraform",
+    "vscode-icons-team.vscode-icons"
+  ]
+}
