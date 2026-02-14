@@ -6,31 +6,25 @@ resource "azurerm_user_assigned_identity" "fortigate" {
   resource_group_name = local.resource_group_name
 }
 
-resource "azurerm_public_ip" "external" {
-  count               = var.create_external_public_ip ? 1 : 0
-  name                = "${var.name}-pip"
-  location            = var.location
-  resource_group_name = local.resource_group_name
-
-  allocation_method = var.public_ip_allocation_method
-  sku               = var.public_ip_sku
-
-  tags = merge(var.tags, var.public_ip_tags)
-}
-
 resource "azurerm_network_interface" "external" {
   name                = "${var.name}-nic-external"
   location            = var.location
   resource_group_name = local.resource_group_name
 
-  accelerated_networking_enabled = var.enable_accelerated_networking
+  accelerated_networking_enabled = coalesce(try(var.external_nic.accelerated_networking_enabled, null), var.enable_accelerated_networking)
   ip_forwarding_enabled          = true
 
-  ip_configuration {
-    name                          = "external"
-    subnet_id                     = var.external_subnet_id
-    private_ip_address_allocation = "Dynamic"
-    public_ip_address_id          = local.external_public_ip_id
+  dynamic "ip_configuration" {
+    for_each = { for key in sort(keys(var.external_nic.ip_map)) : key => var.external_nic.ip_map[key] }
+
+    content {
+      name                          = coalesce(try(ip_configuration.value.name, null), "ipconfig-${ip_configuration.key}")
+      subnet_id                     = var.external_nic.subnet_id
+      private_ip_address_allocation = try(ip_configuration.value.private_ip_address_allocation, "Dynamic")
+      private_ip_address            = try(ip_configuration.value.private_ip_address, null)
+      public_ip_address_id          = ip_configuration.value.public_ip_id
+      primary                       = try(ip_configuration.value.primary, false)
+    }
   }
 
   tags = var.tags
@@ -41,13 +35,14 @@ resource "azurerm_network_interface" "internal" {
   location            = var.location
   resource_group_name = local.resource_group_name
 
-  accelerated_networking_enabled = var.enable_accelerated_networking
+  accelerated_networking_enabled = coalesce(try(var.internal_nic.accelerated_networking_enabled, null), var.enable_accelerated_networking)
   ip_forwarding_enabled          = true
 
   ip_configuration {
     name                          = "internal"
-    subnet_id                     = var.internal_subnet_id
-    private_ip_address_allocation = "Dynamic"
+    subnet_id                     = var.internal_nic.subnet_id
+    private_ip_address_allocation = try(var.internal_nic.private_ip_address_allocation, "Dynamic")
+    private_ip_address            = try(var.internal_nic.private_ip_address, null)
   }
 
   tags = var.tags

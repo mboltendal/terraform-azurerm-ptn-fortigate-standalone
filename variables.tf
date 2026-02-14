@@ -29,7 +29,7 @@ variable "name" {
 variable "vm_size" {
   description = "The size of the FortiGate VM."
   type        = string
-  default     = "Standard_F2s_v2"
+  default     = "Standard_F4s_v2"
 }
 
 variable "admin_username" {
@@ -75,49 +75,62 @@ variable "fortigate_version" {
 
 # Networking Configuration
 variable "enable_accelerated_networking" {
-  description = "Enable accelerated networking on the FortiGate NICs."
+  description = "Default accelerated networking setting for the FortiGate NICs."
   type        = bool
   default     = true
 }
 
-variable "external_subnet_id" {
-  description = "The ID of the subnet to attach the external network interface (port1)."
-  type        = string
+variable "external_nic" {
+  description = "External NIC configuration. Exactly one IP configuration must be primary."
+  type = object({
+    subnet_id                      = string
+    accelerated_networking_enabled = optional(bool)
+    ip_map = map(object({
+      public_ip_id                  = string
+      name                          = optional(string)
+      private_ip_address_allocation = optional(string, "Dynamic")
+      private_ip_address            = optional(string)
+      primary                       = optional(bool, false)
+    }))
+  })
+
+  validation {
+    condition     = length(var.external_nic.ip_map) > 0
+    error_message = "external_nic.ip_map must contain at least one IP configuration entry."
+  }
+
+  validation {
+    condition     = length([for _, cfg in var.external_nic.ip_map : cfg if try(cfg.primary, false)]) == 1
+    error_message = "external_nic.ip_map must contain exactly one entry with primary = true."
+  }
+
+  validation {
+    condition = alltrue([
+      for _, cfg in var.external_nic.ip_map : (
+        try(cfg.private_ip_address, null) == null ||
+        lower(try(cfg.private_ip_address_allocation, "Dynamic")) == "static"
+      )
+    ])
+    error_message = "external_nic.ip_map entries with private_ip_address must set private_ip_address_allocation to Static."
+  }
 }
 
-variable "internal_subnet_id" {
-  description = "The ID of the subnet to attach the internal network interface (port2)."
-  type        = string
-}
+variable "internal_nic" {
+  description = "Internal NIC configuration."
+  type = object({
+    subnet_id                      = string
+    accelerated_networking_enabled = optional(bool)
+    private_ip_address_allocation  = optional(string, "Dynamic")
+    private_ip_address             = optional(string)
+  })
 
-variable "create_external_public_ip" {
-  description = "Create and attach a new Public IP for the external NIC."
-  type        = bool
-  default     = false
-}
-
-variable "external_public_ip_id" {
-  description = "Existing Public IP resource ID to attach when create_external_public_ip is false."
-  type        = string
-  default     = null
-}
-
-variable "public_ip_sku" {
-  description = "SKU for a created public IP (Standard or Basic)."
-  type        = string
-  default     = "Standard"
-}
-
-variable "public_ip_allocation_method" {
-  description = "Allocation method for a created public IP (Static or Dynamic)."
-  type        = string
-  default     = "Static"
-}
-
-variable "public_ip_tags" {
-  description = "Tags to apply to the created public IP."
-  type        = map(string)
-  default     = {}
+  validation {
+    condition = (
+      try(var.internal_nic.private_ip_address, null) == null ||
+      lower(try(var.internal_nic.private_ip_address_allocation, "Dynamic")) == "static"
+    )
+    error_message = "internal_nic.private_ip_address requires private_ip_address_allocation = Static."
+  }
 }
 
 variable "fortigate_custom_data" {
