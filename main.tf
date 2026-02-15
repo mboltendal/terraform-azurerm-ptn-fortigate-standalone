@@ -1,13 +1,14 @@
 
 resource "azurerm_user_assigned_identity" "fortigate" {
   count               = var.managed_identity_id == null ? 1 : 0
-  name                = "${var.name}-mi"
+  name                = "id-${var.name}"
   location            = var.location
   resource_group_name = local.resource_group_name
+  tags                = var.tags
 }
 
 resource "azurerm_network_interface" "external" {
-  name                = "${var.name}-nic-external"
+  name                = "nic-${var.name}-external"
   location            = var.location
   resource_group_name = local.resource_group_name
 
@@ -22,7 +23,7 @@ resource "azurerm_network_interface" "external" {
       subnet_id                     = var.external_nic.subnet_id
       private_ip_address_allocation = try(ip_configuration.value.private_ip_address_allocation, "Dynamic")
       private_ip_address            = try(ip_configuration.value.private_ip_address, null)
-      public_ip_address_id          = ip_configuration.value.public_ip_id
+      public_ip_address_id          = try(ip_configuration.value.public_ip_id, null)
       primary                       = try(ip_configuration.value.primary, false)
     }
   }
@@ -31,7 +32,7 @@ resource "azurerm_network_interface" "external" {
 }
 
 resource "azurerm_network_interface" "internal" {
-  name                = "${var.name}-nic-internal"
+  name                = "nic-${var.name}-internal"
   location            = var.location
   resource_group_name = local.resource_group_name
 
@@ -86,6 +87,7 @@ resource "azurerm_linux_virtual_machine" "fortigate" {
   }
 
   os_disk {
+    name                 = "${var.name}-osdisk"
     caching              = "ReadWrite"
     storage_account_type = "StandardSSD_LRS"
   }

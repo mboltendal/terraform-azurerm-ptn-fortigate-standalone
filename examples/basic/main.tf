@@ -30,3 +30,13 @@ variable "admin_password" {
   type        = string
   sensitive   = true
 }
+
+output "network"{
+  description = "The network details"
+  value       = module.network
+}
+
+output "fortgate" {
+  description = "The FortiGate details"
+  value       = module.fortigate
+}

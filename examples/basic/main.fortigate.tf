@@ -20,7 +20,7 @@ module "fortigate" {
   location  = azurerm_resource_group.fortigate.location
   tags = {
     Environment = "Development"
-    Project     = "Fortigate Deployment"
+    Project     = "FortiGate Deployment"
   }
 
   vm_size        = "Standard_F2s_v2"
