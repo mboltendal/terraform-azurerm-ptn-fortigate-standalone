@@ -1,6 +1,7 @@
 
 resource "azurerm_user_assigned_identity" "fortigate" {
-  count               = var.managed_identity_id == null ? 1 : 0
+  count               = var.create_managed_identity ? 1 : 0
+  
   name                = "id-${var.name}"
   location            = var.location
   resource_group_name = local.resource_group_name

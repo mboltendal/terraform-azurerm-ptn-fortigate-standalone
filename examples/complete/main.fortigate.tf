@@ -4,7 +4,7 @@ resource "azurerm_resource_group" "fortigate" {
 }
 
 resource "azurerm_user_assigned_identity" "fortigate" {
-  name                = "mi-fortigate-dev-weu"
+  name                = "id-fortigate-dev-weu"
   location            = azurerm_resource_group.fortigate.location
   resource_group_name = azurerm_resource_group.fortigate.name
 }
@@ -38,7 +38,7 @@ module "fortigate" {
     Project     = "FortiGate Deployment"
   }
 
-  vm_size        = "Standard_F4s_v2"
+  vm_size        = "Standard_F2s_v2"
   admin_username = "fgadmin"
   admin_password = var.admin_password
 
@@ -82,5 +82,6 @@ module "fortigate" {
 
   zone = null
 
+  create_managed_identity = false
   managed_identity_id = azurerm_user_assigned_identity.fortigate.id
 }

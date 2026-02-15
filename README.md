@@ -12,7 +12,7 @@ Terraform module that deploys a standalone FortiGate NVA (Network Virtual Applia
 - User-assigned managed identity (create new or bring existing)
 - Availability zone placement
 - Accelerated networking support with per-NIC overrides
-- IP forwarding enabled on both NICs
+- IP forwarding enabled on both or individual NICs
 
 ## Architecture
 
@@ -106,6 +106,7 @@ See the [examples](examples) directory for complete working examples.
 | admin_password | The admin password for the FortiGate VM. Required if no SSH key is provided. | `string` | `null` | no |
 | admin_ssh_key | The SSH public key for the FortiGate VM. Required if no password is provided. | `string` | `null` | no |
 | admin_username | The admin username for the FortiGate VM. | `string` | `"fgadmin"` | no |
+| create_managed_identity | Whether to create a new user-assigned managed identity. Set to `false` when supplying `managed_identity_id` (especially if it is computed). | `bool` | `true` | no |
 | enable_accelerated_networking | Default accelerated networking setting for the FortiGate NICs. | `bool` | `true` | no |
 | external_nic | External NIC configuration. Exactly one IP configuration must be primary. | `object({ subnet_id = string, accelerated_networking_enabled = optional(bool), ip_map = map(object({ public_ip_id = string, name = optional(string), private_ip_address_allocation = optional(string, "Dynamic"), private_ip_address = optional(string), primary = optional(bool, false) })) })` | n/a | yes |
 | fortigate_custom_data | Custom data (bootstrap config) to be passed to the FortiGate VM. | `string` | `null` | no |

@@ -14,6 +14,6 @@ locals {
     admin_ssh_key  = var.admin_ssh_key
   })
 
-  managed_identity_id = var.managed_identity_id != null ? var.managed_identity_id : azurerm_user_assigned_identity.fortigate[0].id
+  managed_identity_id = var.create_managed_identity ? azurerm_user_assigned_identity.fortigate[0].id : var.managed_identity_id
 
 }

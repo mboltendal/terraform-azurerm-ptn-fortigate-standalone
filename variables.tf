@@ -182,3 +182,9 @@ variable "managed_identity_id" {
     error_message = "managed_identity_id must be a valid user-assigned identity resource ID."
   }
 }
+
+variable "create_managed_identity" {
+  description = "Whether to create a new user-assigned managed identity. Set to false when supplying managed_identity_id, especially if it is computed."
+  type        = bool
+  default     = true
+}
