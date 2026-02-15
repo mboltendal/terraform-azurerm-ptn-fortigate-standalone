@@ -22,7 +22,16 @@ output "external_nic" {
   value = {
     id                 = azurerm_network_interface.external.id
     name               = azurerm_network_interface.external.name
-    private_ip_address = azurerm_network_interface.external.private_ip_address
+    ip_configuration = [
+      for ip in azurerm_network_interface.external.ip_configuration : {
+        name                          = ip.name
+        subnet_id                     = ip.subnet_id
+        private_ip_address_allocation = ip.private_ip_address_allocation
+        private_ip_address            = ip.private_ip_address
+        public_ip_address_id          = ip.public_ip_address_id
+        primary                       = ip.primary
+      }
+    ]
   }
 }
 
@@ -31,18 +40,17 @@ output "internal_nic" {
   value = {
     id                 = azurerm_network_interface.internal.id
     name               = azurerm_network_interface.internal.name
-    private_ip_address = azurerm_network_interface.internal.private_ip_address
+    ip_configuration = [
+      for ip in azurerm_network_interface.internal.ip_configuration : {
+        name                          = ip.name
+        subnet_id                     = ip.subnet_id
+        private_ip_address_allocation = ip.private_ip_address_allocation
+        private_ip_address            = ip.private_ip_address
+        public_ip_address_id          = ip.public_ip_address_id
+        primary                       = ip.primary
+      }
+    ]
   }
-}
-
-output "external_public_ip_id" {
-  description = "The public IP ID attached to the external NIC (if any)."
-  value       = var.create_external_public_ip ? azurerm_public_ip.external[0].id : var.external_public_ip_id
-}
-
-output "external_public_ip_address" {
-  description = "The public IP address created for the external NIC (if any)."
-  value       = var.create_external_public_ip ? azurerm_public_ip.external[0].ip_address : null
 }
 
 output "managed_identity_id" {

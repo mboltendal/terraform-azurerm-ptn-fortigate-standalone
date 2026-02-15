@@ -12,6 +12,7 @@ variable "parent_id" {
 variable "location" {
   description = "Azure region for resources"
   type        = string
+  nullable    = false
   default     = "west europe"
 }
 
@@ -24,17 +25,20 @@ variable "tags" {
 variable "name" {
   description = "The name of the FortiGate VM."
   type        = string
+  nullable    = false
 }
 
 variable "vm_size" {
   description = "The size of the FortiGate VM."
   type        = string
-  default     = "Standard_F2s_v2"
+  nullable    = false
+  default     = "Standard_F4s_v2"
 }
 
 variable "admin_username" {
   description = "The admin username for the FortiGate VM."
   type        = string
+  nullable    = false
   default     = "fgadmin"
 }
 
@@ -48,6 +52,11 @@ variable "admin_password" {
     condition     = var.admin_password != null || var.admin_ssh_key != null
     error_message = "Either admin_password or admin_ssh_key must be provided."
   }
+
+  validation {
+    condition     = !(var.admin_password != null && var.admin_ssh_key != null)
+    error_message = "Only one of admin_password or admin_ssh_key can be set."
+  }
 }
 
 variable "admin_ssh_key" {
@@ -59,6 +68,7 @@ variable "admin_ssh_key" {
 variable "fortigate_license_type" {
   description = "The license type of the FortiGate image (e.g., byol, payg)."
   type        = string
+  nullable    = false
 
   validation {
     condition     = can(regex("^(byol|payg)$", var.fortigate_license_type))
@@ -69,55 +79,85 @@ variable "fortigate_license_type" {
 variable "fortigate_version" {
   description = "The version of the FortiGate image."
   type        = string
-  default     = "latest"
+  nullable    = false
 }
 
-
-# Networking Configuration
 variable "enable_accelerated_networking" {
-  description = "Enable accelerated networking on the FortiGate NICs."
+  description = "Default accelerated networking setting for the FortiGate NICs."
   type        = bool
+  nullable    = false
   default     = true
 }
 
-variable "external_subnet_id" {
-  description = "The ID of the subnet to attach the external network interface (port1)."
-  type        = string
+variable "external_nic" {
+  description = "External NIC configuration. Exactly one IP configuration must be primary."
+  type = object({
+    subnet_id                      = string
+    accelerated_networking_enabled = optional(bool)
+    ip_map = map(object({
+      name                          = optional(string)
+      public_ip_id                  = optional(string)
+      private_ip_address_allocation = optional(string, "Dynamic")
+      private_ip_address            = optional(string)
+      primary                       = optional(bool, false)
+    }))
+  })
+
+  validation {
+    condition     = length(var.external_nic.ip_map) > 0
+    error_message = "external_nic.ip_map must contain at least one IP configuration entry."
+  }
+
+  validation {
+    condition     = length([for _, cfg in var.external_nic.ip_map : cfg if try(cfg.primary, false)]) == 1
+    error_message = "external_nic.ip_map must contain exactly one entry with primary = true."
+  }
+
+  validation {
+    condition = alltrue([
+      for _, cfg in var.external_nic.ip_map : (
+        try(cfg.private_ip_address, null) == null ||
+        try(cfg.private_ip_address_allocation, "Dynamic") == "Static"
+      )
+    ])
+    error_message = "external_nic.ip_map entries with private_ip_address must set private_ip_address_allocation to Static."
+  }
+
+  validation {
+    condition = alltrue([
+      for _, cfg in var.external_nic.ip_map : contains(
+        ["Static", "Dynamic"],
+        try(cfg.private_ip_address_allocation, "Dynamic")
+      )
+    ])
+    error_message = "external_nic.ip_map private_ip_address_allocation must be either Static or Dynamic."
+  }
 }
 
-variable "internal_subnet_id" {
-  description = "The ID of the subnet to attach the internal network interface (port2)."
-  type        = string
-}
+variable "internal_nic" {
+  description = "Internal NIC configuration."
+  type = object({
+    subnet_id                      = string
+    accelerated_networking_enabled = optional(bool)
+    private_ip_address_allocation  = optional(string, "Dynamic")
+    private_ip_address             = optional(string)
+  })
 
-variable "create_external_public_ip" {
-  description = "Create and attach a new Public IP for the external NIC."
-  type        = bool
-  default     = false
-}
+  validation {
+    condition = (
+      try(var.internal_nic.private_ip_address, null) == null ||
+      try(var.internal_nic.private_ip_address_allocation, "Dynamic") == "Static"
+    )
+    error_message = "internal_nic.private_ip_address requires private_ip_address_allocation = Static."
+  }
 
-variable "external_public_ip_id" {
-  description = "Existing Public IP resource ID to attach when create_external_public_ip is false."
-  type        = string
-  default     = null
-}
-
-variable "public_ip_sku" {
-  description = "SKU for a created public IP (Standard or Basic)."
-  type        = string
-  default     = "Standard"
-}
-
-variable "public_ip_allocation_method" {
-  description = "Allocation method for a created public IP (Static or Dynamic)."
-  type        = string
-  default     = "Static"
-}
-
-variable "public_ip_tags" {
-  description = "Tags to apply to the created public IP."
-  type        = map(string)
-  default     = {}
+  validation {
+    condition = contains(
+      ["Static", "Dynamic"],
+      try(var.internal_nic.private_ip_address_allocation, "Dynamic")
+    )
+    error_message = "internal_nic.private_ip_address_allocation must be either Static or Dynamic."
+  }
 }
 
 variable "fortigate_custom_data" {
@@ -136,4 +176,15 @@ variable "managed_identity_id" {
   description = "Existing user-assigned managed identity ID. If not provided, a new identity will be created."
   type        = string
   default     = null
+
+  validation {
+    condition     = var.managed_identity_id == null || can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+/providers/Microsoft\\.ManagedIdentity/userAssignedIdentities/[^/]+$", var.managed_identity_id))
+    error_message = "managed_identity_id must be a valid user-assigned identity resource ID."
+  }
+}
+
+variable "create_managed_identity" {
+  description = "Whether to create a new user-assigned managed identity. Set to false when supplying managed_identity_id, especially if it is computed."
+  type        = bool
+  default     = true
 }

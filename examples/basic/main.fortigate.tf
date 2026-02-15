@@ -3,6 +3,15 @@ resource "azurerm_resource_group" "fortigate" {
   location = "westeurope"
 }
 
+resource "azurerm_public_ip" "fortigate_primary" {
+  name                = "pip-fortigate-primary-dev-weu"
+  location            = azurerm_resource_group.fortigate.location
+  resource_group_name = azurerm_resource_group.fortigate.name
+
+  allocation_method = "Static"
+  sku               = "Standard"
+}
+
 module "fortigate" {
   source = "../../"
 
@@ -11,15 +20,26 @@ module "fortigate" {
   location  = azurerm_resource_group.fortigate.location
   tags = {
     Environment = "Development"
-    Project     = "Fortigate Deployment"
+    Project     = "FortiGate Deployment"
   }
 
+  vm_size        = "Standard_F2s_v2"
+  admin_username = "fgadmin"
   admin_password = var.admin_password
 
   fortigate_license_type = "payg"
 
   enable_accelerated_networking = false
-  create_external_public_ip     = true
-  external_subnet_id            = module.network.subnets["external"].resource_id
-  internal_subnet_id            = module.network.subnets["internal"].resource_id
+  external_nic = {
+    subnet_id = module.network.subnets["external"].resource_id
+    ip_map = {
+      primary = {
+        public_ip_id = azurerm_public_ip.fortigate_primary.id
+        primary      = true
+      }
+    }
+  }
+  internal_nic = {
+    subnet_id = module.network.subnets["internal"].resource_id
+  }
 }
